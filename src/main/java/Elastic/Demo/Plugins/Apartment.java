@@ -1,5 +1,6 @@
 package Elastic.Demo.Plugins;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -44,6 +45,7 @@ public class Apartment extends BaseRestHandler {
     controller.registerHandler(Method.POST, "/create/*/*", this);
     controller.registerHandler(Method.GET, "/searchbyid/*/*", this);
     controller.registerHandler(Method.POST, "/search/*/*", this);
+    controller.registerHandler(Method.GET, "/search/*/*", this);
   }
   
   @Override
@@ -58,11 +60,13 @@ public class Apartment extends BaseRestHandler {
     String type = params[3].toLowerCase();
     String id = "";
     System.out.println("op :" + op + "indexName : " + indexName + " Type :" + type);
-    BytesReference postBody = request.content();
-    Map<String, Object> postData = mapper.readValue(postBody.streamInput(),
-        new TypeReference<Map<String, Object>>()
-        {
-        });
+    Map<String, Object> postData = new HashMap<String, Object>();
+    if (request.hasContent()) {
+      BytesReference postBody = request.content();
+      postData = mapper.readValue(postBody.streamInput(), new TypeReference<Map<String, Object>>()
+      {
+      });
+    }
     String responseString = "sucess", SortField = "";
     int page = 1, from = 0, size = 5;
     if ("create".equalsIgnoreCase(op)) {
@@ -73,19 +77,17 @@ public class Apartment extends BaseRestHandler {
       channel.sendResponse(new BytesRestResponse(RestStatus.OK, responseString));
     }
     else if ("search".equalsIgnoreCase(op)) {
-      if (params.length > 5) {
-        SortField = params[4].toLowerCase();
+      if (request.hasParam("field")) {
+        SortField = request.param("field");
       }
-      if (params.length > 6) {
-        page = Integer.parseInt(params[5]);
+      if (request.hasParam("page")) {
+        page = Integer.parseInt(request.param("page"));
       }
-      if (params.length > 7) {
-        size = Integer.parseInt(params[6]);
+      if (request.hasParam("size")) {
+        size = Integer.parseInt(request.param("size"));
       }
       from = Math.abs(size * (page - 1));
-      
       responseString = CommonUtils.search(client, indexName, type, from, size, SortField, postData);
-      
       channel.sendResponse(new BytesRestResponse(RestStatus.OK, responseString));
     }
     else {
